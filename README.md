@@ -83,3 +83,4 @@ flexeesense2/
 | Ctrl+scroll | Zoom canvas           |
 | Ctrl+`      | Toggle log panel      |
 | Ctrl+Shift+C| Toggle collab panel   |
+# FlexeeSense_WoZ_2-
