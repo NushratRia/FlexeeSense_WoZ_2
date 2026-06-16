@@ -38,6 +38,8 @@ const Tabs = (() => {
     if (entry) {
       Logger.info('Tabs', `Activating: ${entry.name}  type=${entry.type}`);
       renderViewer(entry);
+      // Refresh draw canvas so it covers new content dimensions
+      if (typeof Draw !== 'undefined') Draw.refresh();
     }
   }
 
