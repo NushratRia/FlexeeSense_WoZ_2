@@ -1,0 +1,121 @@
+/* collab.css — Collaboration panel + peer cursors */
+
+.collab-panel {
+  position: fixed; top: 44px; right: 0;
+  width: 290px; height: calc(100vh - 44px);
+  background: var(--bg-2); border-left: 1px solid var(--border-2);
+  box-shadow: -4px 0 24px rgba(0,0,0,0.3);
+  z-index: 300; display: flex; flex-direction: column;
+  font-family: var(--font);
+}
+
+.cp-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px 12px; border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.cp-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.cp-close {
+  background: none; border: none; color: var(--text-3);
+  font-size: 14px; cursor: pointer; padding: 2px 6px; border-radius: 4px;
+}
+.cp-close:hover { background: var(--bg-hover); color: var(--text); }
+
+.cp-section { padding: 14px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.cp-label {
+  display: block; font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--text-3); margin-bottom: 8px;
+}
+
+.cp-input {
+  width: 100%; padding: 8px 10px;
+  background: var(--bg-3); border: 1px solid var(--border-2);
+  border-radius: var(--radius); color: var(--text); font-size: 12px; outline: none;
+}
+.cp-input:focus { border-color: var(--accent); }
+.cp-input::placeholder { color: var(--text-3); }
+
+.cp-room-row { display: flex; gap: 6px; }
+.cp-join-btn {
+  padding: 8px 14px; background: var(--accent); color: #fff; border: none;
+  border-radius: var(--radius); font-size: 12px; font-weight: 600;
+  white-space: nowrap; transition: opacity 0.15s;
+}
+.cp-join-btn:hover { opacity: 0.85; }
+
+.cp-small-row { display: flex; gap: 6px; margin-top: 8px; }
+.cp-sm-btn {
+  flex: 1; padding: 6px 8px; background: var(--bg-3); border: 1px solid var(--border-2);
+  border-radius: var(--radius); font-size: 11px; color: var(--text-2);
+  transition: all 0.12s;
+}
+.cp-sm-btn:hover { background: var(--bg-hover); color: var(--text); }
+
+.cp-connected-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 16px; background: rgba(31,171,110,0.1);
+  border-bottom: 1px solid rgba(31,171,110,0.2);
+  font-size: 12px; color: var(--success); flex-shrink: 0;
+}
+.cp-online-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--success); flex-shrink: 0;
+  box-shadow: 0 0 0 3px rgba(31,171,110,0.2);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%,100% { box-shadow: 0 0 0 2px rgba(31,171,110,0.2); }
+  50%      { box-shadow: 0 0 0 6px rgba(31,171,110,0.05); }
+}
+.cp-leave-btn {
+  margin-left: auto; padding: 3px 8px;
+  background: none; border: 1px solid rgba(31,171,110,0.3);
+  border-radius: 4px; font-size: 11px; color: var(--success);
+}
+.cp-leave-btn:hover { background: rgba(31,171,110,0.1); }
+
+.cp-peers-list {
+  display: flex; flex-direction: column; gap: 7px;
+  max-height: 110px; overflow-y: auto;
+}
+.cp-peer-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--text-2);
+}
+.cp-peer-dot {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+}
+
+.cp-chat-section {
+  flex: 1; display: flex; flex-direction: column;
+  padding: 10px 16px; min-height: 0; overflow: hidden;
+}
+.cp-chat-log {
+  flex: 1; overflow-y: auto; display: flex; flex-direction: column;
+  gap: 6px; padding: 4px 0; min-height: 0;
+}
+.cp-chat-msg {
+  font-size: 12px; padding: 6px 8px; border-radius: 6px;
+  background: var(--bg-3); line-height: 1.4;
+}
+.cp-chat-msg.me { background: rgba(249,115,22,0.15); }
+.cp-chat-msg.system { background: none; text-align: center; color: var(--text-3); font-size: 11px; font-style: italic; padding: 2px 0; }
+.cp-chat-author { font-size: 10px; font-weight: 700; margin-bottom: 2px; }
+.cp-typing { font-size: 11px; color: var(--text-3); min-height: 16px; font-style: italic; }
+.cp-chat-row { display: flex; gap: 6px; margin-top: 8px; flex-shrink: 0; }
+.cp-chat-row .cp-input { flex: 1; }
+.cp-chat-row .cp-join-btn { padding: 8px 12px; }
+
+/* Peer cursors */
+.peer-cursor {
+  position: fixed; pointer-events: none; z-index: 400;
+  will-change: transform; transition: transform 0.06s linear;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+}
+.peer-cursor svg { filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4)); }
+.peer-cursor-name {
+  font-size: 10px; font-weight: 700; padding: 2px 6px;
+  border-radius: 4px; color: #fff; white-space: nowrap; margin-left: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}

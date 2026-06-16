@@ -1,0 +1,26 @@
+# Python virtual environment
+venv/
+.venv/
+env/
+
+# Logs
+app.log
+*.log
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Flask / local env
+.env
+instance/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Node, if any
+node_modules/
