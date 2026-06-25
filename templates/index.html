@@ -2,13 +2,23 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23f97316'/><text y='.9em' font-size='80' x='10'>📄</text></svg>">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Document Studio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+<!-- Socket.IO must load before Monaco (which hijacks window.define) -->
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+  // Stash io before Monaco's RequireJS loader can interfere
+  window._io = window.io;
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+<script>
+  // Restore io after Monaco loader (which overwrites window.define)
+  if (!window.io && window._io) window.io = window._io;
+</script>
 <link rel="stylesheet" href="/static/css/main.css">
 <link rel="stylesheet" href="/static/css/pdf.css">
 <link rel="stylesheet" href="/static/css/collab.css">
@@ -157,7 +167,7 @@
             <div class="wb-sep"></div>
 
             <!-- STICKY NOTE -->
-            <button class="wb-sb wb-add" onclick="Whiteboard.addSticky()" data-tip="Add sticky note">
+            <button class="wb-sb wb-add" onclick="Whiteboard.addSticky()" data-tip="Add sticky note (right-click to change color)">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16l4-4h10a2 2 0 002-2V4a2 2 0 00-2-2z"/></svg>
             </button>
 
@@ -253,43 +263,7 @@
 
 <!-- draw canvas is now injected inside viewer-pane by draw.js -->
 
-<!-- COLLAB PANEL -->
-<div id="collab-panel" class="collab-panel" style="display:none">
-  <div class="cp-header">
-    <span class="cp-title">👥 Collaborate</span>
-    <button class="cp-close" onclick="toggleCollabPanel()">✕</button>
-  </div>
-  <div id="cp-join" class="cp-section">
-    <label class="cp-label">Your name</label>
-    <input class="cp-input" id="cp-name" type="text" placeholder="Enter your name…" maxlength="32">
-    <label class="cp-label" style="margin-top:10px">Room ID</label>
-    <div style="display:flex;gap:6px">
-      <input class="cp-input" id="cp-room" type="text" placeholder="main" maxlength="40" style="flex:1">
-      <button class="cp-join-btn" onclick="collabJoin()">Join</button>
-    </div>
-    <div style="display:flex;gap:6px;margin-top:8px">
-      <button class="cp-sm-btn" onclick="collabCopyLink()">🔗 Copy link</button>
-      <button class="cp-sm-btn" onclick="collabGenRoom()">🎲 Random</button>
-    </div>
-  </div>
-  <div id="cp-connected" class="cp-connected-bar" style="display:none"></div>
-  <div id="cp-peers" class="cp-section" style="display:none">
-    <label class="cp-label">In this room</label>
-    <div id="cp-peers-list" class="cp-peers-list"></div>
-  </div>
-  <div id="cp-chat" class="cp-chat-section" style="display:none">
-    <label class="cp-label">Chat</label>
-    <div id="cp-chat-log" class="cp-chat-log"></div>
-    <div id="cp-typing" class="cp-typing"></div>
-    <div style="display:flex;gap:6px;margin-top:8px;flex-shrink:0">
-      <input class="cp-input" id="cp-chat-input" placeholder="Message…" style="flex:1"
-             onkeydown="if(event.key==='Enter')collabSendChat()">
-      <button class="cp-join-btn" onclick="collabSendChat()">➤</button>
-    </div>
-  </div>
-</div>
-
-<!-- LOG PANEL -->
+<!-- LOG<!-- LOG PANEL -->
 <div id="log-panel" class="log-panel" style="display:none">
   <div class="log-header">
     <span>📋 app.log</span>

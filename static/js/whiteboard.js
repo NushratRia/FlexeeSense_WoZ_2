@@ -530,7 +530,15 @@ const Whiteboard = (() => {
   }
 
   // ── History ────────────────────────────────────────────────────────────
-  function _save(){history.push(JSON.stringify({elements,strokes,connectors}));if(history.length>60)history.shift();redoSt=[];}
+  function _save(){
+    history.push(JSON.stringify({elements,strokes,connectors}));
+    if(history.length>60)history.shift();
+    redoSt=[];
+    // Broadcast whiteboard state to collaborators (throttled in collab.js)
+    setTimeout(()=>{
+      if(typeof collabSyncWhiteboard==='function') collabSyncWhiteboard({elements,strokes,connectors});
+    },0);
+  }
   function undo(){if(!history.length)return;redoSt.push(JSON.stringify({elements,strokes,connectors}));const s=JSON.parse(history.pop());elements=s.elements;strokes=s.strokes;connectors=s.connectors;selected=null;render();}
   function redo(){if(!redoSt.length)return;history.push(JSON.stringify({elements,strokes,connectors}));const s=JSON.parse(redoSt.pop());elements=s.elements;strokes=s.strokes;connectors=s.connectors;selected=null;render();}
 
@@ -643,5 +651,17 @@ const Whiteboard = (() => {
     document.addEventListener('mousemove',nav);document.addEventListener('mouseup',up);e.stopPropagation();
   }
 
-  return {init,setTool,setColor,setSize,setStickyColor,clear,undo,redo,zoomIn,zoomOut,zoomReset,exportPNG,addSticky,addFileCard,render};
+  function getState() { return {elements,strokes,connectors}; }
+
+  function applyRemoteState(state) {
+    if (!state) return;
+    elements   = state.elements   || [];
+    strokes    = state.strokes    || [];
+    connectors = state.connectors || [];
+    selected   = null;
+    render();
+    Logger.debug('WB','Applied remote state');
+  }
+
+  return {init,setTool,setColor,setSize,setStickyColor,clear,undo,redo,zoomIn,zoomOut,zoomReset,exportPNG,addSticky,addFileCard,render,getState,applyRemoteState};
 })();

@@ -465,6 +465,10 @@ const PDFViewer = (() => {
     const area = container.querySelector('.pdf-canvas-area');
     if (!area) return;
     area.addEventListener('scroll', () => {
+      // Broadcast scroll position to collaborators (follow mode)
+      if (typeof collabSyncScroll === 'function') {
+        collabSyncScroll('.pdf-canvas-area', area.scrollTop, area.scrollLeft);
+      }
       const ar = area.getBoundingClientRect();
       let best = 1, bestVis = -Infinity;
       for (let pn = 1; pn <= (doc?.numPages || 1); pn++) {

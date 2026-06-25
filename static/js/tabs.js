@@ -40,6 +40,8 @@ const Tabs = (() => {
       renderViewer(entry);
       // Refresh draw canvas so it covers new content dimensions
       if (typeof Draw !== 'undefined') Draw.refresh();
+      // Broadcast to collaborators
+      if (typeof collabSyncDoc === 'function') collabSyncDoc(entry);
     }
   }
 

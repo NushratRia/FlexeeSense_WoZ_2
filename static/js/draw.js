@@ -142,6 +142,8 @@ const Draw = (() => {
       history.push(JSON.parse(JSON.stringify(strokes)));
       redoSt = [];
       strokes.push(current);
+      // Broadcast completed stroke to collaborators
+      if (typeof collabSyncStroke === 'function') collabSyncStroke(current);
     }
     current = null;
     _redraw();
@@ -249,6 +251,7 @@ const Draw = (() => {
     redoSt = [];
     strokes = [];
     _redraw();
+    if (typeof collabSyncDrawClear === 'function') collabSyncDrawClear();
   }
 
   function exportPNG() {
@@ -259,7 +262,22 @@ const Draw = (() => {
     a.click();
   }
 
-  return { enable, disable, toggle, setTool, setColor, setSize, undo, redo, clear, refresh, exportPNG };
+  /** Replay a stroke received from a peer */
+  function replayStroke(stroke) {
+    if (!ctx) return;
+    strokes.push(stroke);
+    _redraw();
+  }
+
+  /** Clear from remote peer without broadcasting back */
+  function clearRemote() {
+    strokes = [];
+    _redraw();
+  }
+
+  function getStrokes() { return JSON.parse(JSON.stringify(strokes)); }
+
+  return { enable, disable, toggle, setTool, setColor, setSize, undo, redo, clear, refresh, exportPNG, replayStroke, clearRemote, getStrokes };
 })();
 
 function toggleDraw()    { Draw.toggle(); }

@@ -176,6 +176,7 @@ def on_join(data):
     # Send snapshot to the joining peer (all other peers + chat history)
     other_peers = [p for s, p in peers.items() if s != request.sid]
     emit('snapshot', {'state': state, 'peers': other_peers})
+    emit('joined_ack', {'sid': request.sid, 'name': name, 'color': color, 'room': r})
     # Broadcast join to everyone else
     emit('peer_joined', {'sid': request.sid, 'name': name, 'color': color}, to=r, skip_sid=request.sid)
     log.info(f'JOIN  sid={request.sid}  name="{name}"  room="{r}"  peers={len(peers)}')
@@ -210,9 +211,27 @@ def on_cursor(data):
     r = data.get('room', 'main')
     emit('cursor', {**data, 'sid': request.sid}, to=r, skip_sid=request.sid)
 
+@socketio.on('sync_state_response')
+def on_sync_state_response(data):
+    r = data.get('room', 'main')
+    emit('sync_state_response', data, to=r, skip_sid=request.sid)
+
+@socketio.on('request_sync_state')
+def on_request_sync_state(data):
+    r = data.get('room', 'main')
+    emit('request_sync_state', data, to=r, skip_sid=request.sid)
+
 @socketio.on_error_default
 def on_err(e):
     log.error(f'SOCKET_ERR  {e}', exc_info=True)
+
+@app.route('/.well-known/<path:p>')
+def well_known(p):
+    return '', 204
+
+@app.route('/favicon.ico')
+def favicon():
+    return '', 204   # No content — silences browser favicon request
 
 @app.errorhandler(Exception)
 def on_http_err(e):
@@ -225,3 +244,42 @@ if __name__ == '__main__':
     log.info(f'→  http://localhost:{port}')
     log.info(f'→  Log: http://localhost:{port}/log')
     socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True)
+
+# ── Sync events ────────────────────────────────────────────────────────────
+@socketio.on('sync_doc')
+def on_sync_doc(data):
+    """Peer opened a document — broadcast to room so others open same file."""
+    r = data.get('room', 'main')
+    emit('sync_doc', data, to=r, skip_sid=request.sid)
+
+@socketio.on('sync_draw_stroke')
+def on_sync_draw_stroke(data):
+    """Single completed draw stroke — broadcast to room."""
+    r = data.get('room', 'main')
+    emit('sync_draw_stroke', data, to=r, skip_sid=request.sid)
+
+@socketio.on('sync_draw_clear')
+def on_sync_draw_clear(data):
+    """Draw cleared — broadcast."""
+    r = data.get('room', 'main')
+    emit('sync_draw_clear', data, to=r, skip_sid=request.sid)
+
+@socketio.on('sync_whiteboard')
+def on_sync_whiteboard(data):
+    """Full whiteboard state snapshot — store and broadcast."""
+    r = data.get('room', 'main')
+    state, _ = _room(r)
+    state['whiteboard'] = data.get('state')
+    emit('sync_whiteboard', data, to=r, skip_sid=request.sid)
+
+@socketio.on('sync_scroll')
+def on_sync_scroll(data):
+    """Scroll position — broadcast for follower mode."""
+    r = data.get('room', 'main')
+    emit('sync_scroll', data, to=r, skip_sid=request.sid)
+
+@socketio.on('request_state')
+def on_request_state(data):
+    """New joiner requests current state — host sends it."""
+    r = data.get('room', 'main')
+    emit('state_requested', {'room': r, 'requester': request.sid}, to=r, skip_sid=request.sid)
