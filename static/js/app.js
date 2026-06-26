@@ -108,39 +108,42 @@ Logger.info('App', 'App.js loaded — ready', {
 
 // ── Landing page collaborate helpers ──────────────────────────────────────
 function landingJoin() {
-  const name = document.getElementById('lp-name')?.value?.trim();
-  const room = document.getElementById('lp-room')?.value?.trim();
-  if (!name) { toast('Enter your name first', 'warn'); document.getElementById('lp-name')?.focus(); return; }
-  if (!room) { toast('Enter a room ID', 'warn'); document.getElementById('lp-room')?.focus(); return; }
+  const name = (document.getElementById('lp-name')?.value || '').trim();
+  const room = (document.getElementById('lp-room')?.value || '').trim();
+  if (!name) { toast('Enter your name first'); document.getElementById('lp-name')?.focus(); return; }
+  if (!room) { toast('Enter a room ID');        document.getElementById('lp-room')?.focus(); return; }
 
-  // Pre-fill the collab panel inputs and join
-  const cpName = document.getElementById('cp-name');
-  const cpRoom = document.getElementById('cp-room');
-  if (cpName) cpName.value = name;
-  if (cpRoom) cpRoom.value = room;
-
-  // We need the app to be visible first — show it with a stub tab or just show collab panel
-  // If no files open yet, show a minimal app state with collab panel
+  // Show the main app
   document.getElementById('upload-screen').style.display = 'none';
-  document.getElementById('app').style.display = 'flex';
+  document.getElementById('app').style.display           = 'flex';
 
-  // Open collab panel and auto-join
-  if (typeof collabJoin === 'function') {
-    setTimeout(() => {
-      collabJoin();
-      // Show collab panel
-      document.getElementById('collab-panel').style.display = 'flex';
-      document.getElementById('btn-collab').classList.add('active');
-    }, 100);
-  }
-  toast(`✅ Joining room "${room}"…`);
-  Logger.info('Landing', `Join: name="${name}" room="${room}"`);
+  // Wait for collab.js to finish building the panel, then connect
+  setTimeout(() => {
+    // Fill panel inputs so they show correctly if user opens the panel
+    const ni = document.getElementById('collab-name');
+    const ri = document.getElementById('collab-room');
+    if (ni) ni.value = name;
+    if (ri) ri.value = room;
+
+    // Open panel
+    const panel = document.getElementById('collab-panel');
+    if (panel) panel.style.display = 'flex';
+    document.getElementById('btn-collab')?.classList.add('active');
+
+    // Pass name+room directly — don't rely on DOM inputs being ready
+    if (typeof collabConnect === 'function') {
+      collabConnect(name, room);
+    }
+    Logger.info('Landing', `Join: name="${name}" room="${room}"`);
+  }, 200);
 }
 
 function landingGenRoom() {
-  const id = Math.random().toString(36).slice(2, 8).toUpperCase();
-  const inp = document.getElementById('lp-room');
-  if (inp) { inp.value = id; inp.focus(); }
+  const id  = Math.random().toString(36).slice(2, 8).toUpperCase();
+  const lp  = document.getElementById('lp-room');
+  const cp  = document.getElementById('collab-room');
+  if (lp) { lp.value = id; lp.focus(); }
+  if (cp) cp.value = id;
 }
 
 // Restore saved name in landing collab card

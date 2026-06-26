@@ -162,32 +162,43 @@ def _room(r):
     _peers.setdefault(r, {})
     return _rooms[r], _peers[r]
 
-COLORS = ['#2563EB','#D97706','#7C3AED','#1A8F6F','#E05A3A','#0891B2','#be185d']
+COLORS = ['#2563EB','#D97706','#7C3AED','#1A8F6F','#E05A3A','#0891B2','#BE185D','#EA580C','#0D9488','#7C2D12','#4338CA','#166534']
 
 @socketio.on('join')
 def on_join(data):
     r     = data.get('room', 'main')
     name  = data.get('name', 'Peer')
     state, peers = _room(r)
+
+    # Evict any existing entry with the same name (reconnect case)
+    stale = [sid for sid, p in peers.items() if p['name'] == name and sid != request.sid]
+    for sid in stale:
+        old_peer = peers.pop(sid)
+        emit('peer_left', {'sid': sid, 'name': old_peer['name']}, to=r)
+        log.info(f'EVICT  sid={sid}  name="{name}"  room="{r}" (reconnect)')
+
+    # Assign a unique color
     used  = [p['color'] for p in peers.values()]
-    color = next((c for c in COLORS if c not in used), COLORS[0])
+    avail = [c for c in COLORS if c not in used]
+    color = data.get('color') if data.get('color') in COLORS else (avail[0] if avail else COLORS[len(peers) % len(COLORS)])
+
     join_room(r)
     peers[request.sid] = {'name': name, 'color': color, 'sid': request.sid}
-    # Send snapshot to the joining peer (all other peers + chat history)
+
     other_peers = [p for s, p in peers.items() if s != request.sid]
     emit('snapshot', {'state': state, 'peers': other_peers})
     emit('joined_ack', {'sid': request.sid, 'name': name, 'color': color, 'room': r})
-    # Broadcast join to everyone else
     emit('peer_joined', {'sid': request.sid, 'name': name, 'color': color}, to=r, skip_sid=request.sid)
     log.info(f'JOIN  sid={request.sid}  name="{name}"  room="{r}"  peers={len(peers)}')
 
 @socketio.on('disconnect')
-def on_disc():
-    for r, peers in _peers.items():
+def on_disc(*args):   # newer Flask-SocketIO passes reason as first arg
+    reason = args[0] if args else 'unknown'
+    for r, peers in list(_peers.items()):
         if request.sid in peers:
             peer = peers.pop(request.sid)
             emit('peer_left', {'sid': request.sid, 'name': peer['name']}, to=r)
-            log.info(f'DISC  sid={request.sid}  name="{peer["name"]}"  room="{r}"')
+            log.info(f'DISC  sid={request.sid}  name="{peer["name"]}"  room="{r}"  reason={reason}')
             break
 
 @socketio.on('file_open')
@@ -220,6 +231,66 @@ def on_sync_state_response(data):
 def on_request_sync_state(data):
     r = data.get('room', 'main')
     emit('request_sync_state', data, to=r, skip_sid=request.sid)
+
+@socketio.on('wb_element_add')
+def on_wb_element_add(data):
+    r = data.get('room', 'main')
+    emit('wb_element_add', data, to=r, skip_sid=request.sid)
+
+@socketio.on('wb_element_move')
+def on_wb_element_move(data):
+    r = data.get('room', 'main')
+    emit('wb_element_move', data, to=r, skip_sid=request.sid)
+
+@socketio.on('wb_element_delete')
+def on_wb_element_delete(data):
+    r = data.get('room', 'main')
+    emit('wb_element_delete', data, to=r, skip_sid=request.sid)
+
+@socketio.on('wb_element_update')
+def on_wb_element_update(data):
+    r = data.get('room', 'main')
+    emit('wb_element_update', data, to=r, skip_sid=request.sid)
+
+@socketio.on('wb_stroke_add')
+def on_wb_stroke_add(data):
+    r = data.get('room', 'main')
+    emit('wb_stroke_add', data, to=r, skip_sid=request.sid)
+
+@socketio.on('wb_stroke_clear')
+def on_wb_stroke_clear(data):
+    r = data.get('room', 'main')
+    emit('wb_stroke_clear', data, to=r, skip_sid=request.sid)
+
+@socketio.on('wb_connectors')
+def on_wb_connectors(data):
+    r = data.get('room', 'main')
+    emit('wb_connectors', data, to=r, skip_sid=request.sid)
+
+@socketio.on('draw_stroke_add')
+def on_draw_stroke_add(data):
+    r = data.get('room', 'main')
+    emit('draw_stroke_add', data, to=r, skip_sid=request.sid)
+
+@socketio.on('draw_clear')
+def on_draw_clear(data):
+    r = data.get('room', 'main')
+    emit('draw_clear', data, to=r, skip_sid=request.sid)
+
+@socketio.on('doc_open')
+def on_doc_open(data):
+    r = data.get('room', 'main')
+    emit('doc_open', data, to=r, skip_sid=request.sid)
+
+@socketio.on('state_request')
+def on_state_request(data):
+    r = data.get('room', 'main')
+    emit('state_request', data, to=r, skip_sid=request.sid)
+
+@socketio.on('state_response')
+def on_state_response(data):
+    r = data.get('room', 'main')
+    emit('state_response', data, to=r, skip_sid=request.sid)
 
 @socketio.on_error_default
 def on_err(e):

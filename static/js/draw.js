@@ -139,11 +139,14 @@ const Draw = (() => {
     if (!drawing) return;
     drawing = false;
     if (current && current.points.length > 1) {
+      if (!current.id) current.id = 'ds-' + Date.now() + '-' + Math.random().toString(36).slice(2,6);
       history.push(JSON.parse(JSON.stringify(strokes)));
       redoSt = [];
       strokes.push(current);
-      // Broadcast completed stroke to collaborators
-      if (typeof collabSyncStroke === 'function') collabSyncStroke(current);
+      // Reference pattern: call window hook — collab.js listens for this
+      if (typeof window.onStrokeAdded === 'function') {
+        window.onStrokeAdded(current.id, current.points, current.color, current.size);
+      }
     }
     current = null;
     _redraw();
@@ -251,7 +254,8 @@ const Draw = (() => {
     redoSt = [];
     strokes = [];
     _redraw();
-    if (typeof collabSyncDrawClear === 'function') collabSyncDrawClear();
+    // Reference pattern: call window hook
+    if (typeof window.onStrokeDeleted === 'function') window.onStrokeDeleted('__clear__');
   }
 
   function exportPNG() {
@@ -262,17 +266,28 @@ const Draw = (() => {
     a.click();
   }
 
-  /** Replay a stroke received from a peer */
+  /** Replay a stroke received from a peer — always works even if Draw not enabled */
   function replayStroke(stroke) {
-    if (!ctx) return;
+    if (!stroke || !stroke.points || stroke.points.length < 2) return;
+    // Auto-init canvas inside the viewer if not yet done
+    if (!ctx) {
+      _init();
+      if (canvas) { canvas.style.pointerEvents = 'none'; } // non-interactive for peer strokes
+      if (!ctx) { console.warn('[Draw] replayStroke: no ctx after init'); return; }
+      _sizeCanvas();
+    }
+    // Dedup
+    strokes = strokes.filter(s => s.id !== stroke.id);
     strokes.push(stroke);
     _redraw();
+    Logger.debug('Draw', `Replayed stroke id=${stroke.id} pts=${stroke.points.length}`);
   }
 
   /** Clear from remote peer without broadcasting back */
   function clearRemote() {
     strokes = [];
-    _redraw();
+    if (!ctx) { _init(); _sizeCanvas(); }
+    if (ctx) _redraw();
   }
 
   function getStrokes() { return JSON.parse(JSON.stringify(strokes)); }

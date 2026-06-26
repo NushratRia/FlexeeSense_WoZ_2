@@ -453,8 +453,8 @@ const Whiteboard = (() => {
     if(isPanning){isPanning=false;_cursor();}
     if(isDrawing){isDrawing=false;currentStroke=null;}
     if(isErasing){isErasing=false;}
-    if(isResizing){if(resizeEl)_save();isResizing=false;resizeEl=null;resizeStart=null;}
-    if(dragEl){if(isDragging)_save();dragEl=null;isDragging=false;}
+    if(isResizing){if(resizeEl){_save();if(resizeEl)_syncUpd(resizeEl.id,{w:resizeEl.w,h:resizeEl.h});}isResizing=false;resizeEl=null;resizeStart=null;}
+    if(dragEl){if(isDragging){_save();_syncMove(dragEl.id,dragEl.x,dragEl.y);}dragEl=null;isDragging=false;}
     render();
   }
   function _onLeave(){
@@ -492,7 +492,7 @@ const Whiteboard = (() => {
     if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();undo();}
     if((e.ctrlKey||e.metaKey)&&e.key==='y'){e.preventDefault();redo();}
     if(e.key==='Delete'||e.key==='Backspace'){
-      if(selected){_save();elements=elements.filter(el=>el.id!==selected);connectors=connectors.filter(c=>c.fromId!==selected&&c.toId!==selected);selected=null;render();}
+      if(selected){_save();const _delId=selected;elements=elements.filter(el=>el.id!==_delId);connectors=connectors.filter(c=>c.fromId!==_delId&&c.toId!==_delId);selected=null;render();_syncDel(_delId);}
     }
     if(e.key==='Escape'){selected=null;isConnecting=false;connectFrom=null;previewPt=null;render();_cursor();}
     const S=40/zoom;
@@ -524,7 +524,7 @@ const Whiteboard = (() => {
     editor.focus();
     const r=document.createRange(); r.selectNodeContents(editor); r.collapse(false);
     const s=window.getSelection(); s.removeAllRanges(); s.addRange(r);
-    const commit=()=>{_save();el.text=editor.textContent.trim();editor.remove();render();};
+    const commit=()=>{_save();el.text=editor.textContent.trim();editor.remove();render();_syncUpd(el.id,{text:el.text});};
     editor.addEventListener('blur',commit);
     editor.addEventListener('keydown',ev=>{if(ev.key==='Escape'){editor.remove();render();}ev.stopPropagation();});
   }
@@ -534,11 +534,13 @@ const Whiteboard = (() => {
     history.push(JSON.stringify({elements,strokes,connectors}));
     if(history.length>60)history.shift();
     redoSt=[];
-    // Broadcast whiteboard state to collaborators (throttled in collab.js)
-    setTimeout(()=>{
-      if(typeof collabSyncWhiteboard==='function') collabSyncWhiteboard({elements,strokes,connectors});
-    },0);
   }
+  // Granular sync helpers — called AFTER each specific mutation
+  function _syncAdd(el)   { if(!window.syncIsApplying?.()) window.onWbElementAdded?.(el); }
+  function _syncMove(id,x,y){ if(!window.syncIsApplying?.()) window.onWbElementMoved?.(id,x,y); }
+  function _syncDel(id)   { if(!window.syncIsApplying?.()) window.onWbElementDeleted?.(id); }
+  function _syncUpd(id,p) { if(!window.syncIsApplying?.()) window.onWbElementUpdated?.(id,p); }
+  function _syncConns()   { if(!window.syncIsApplying?.()) window.onWbConnectorsChanged?.(connectors); }
   function undo(){if(!history.length)return;redoSt.push(JSON.stringify({elements,strokes,connectors}));const s=JSON.parse(history.pop());elements=s.elements;strokes=s.strokes;connectors=s.connectors;selected=null;render();}
   function redo(){if(!redoSt.length)return;history.push(JSON.stringify({elements,strokes,connectors}));const s=JSON.parse(redoSt.pop());elements=s.elements;strokes=s.strokes;connectors=s.connectors;selected=null;render();}
 
@@ -552,7 +554,7 @@ const Whiteboard = (() => {
     const count=elements.filter(e=>e.type==='sticky').length;
     const off=(count%8)*22;
     const el={id:'el'+(++elId),type:'sticky',x:wx-90+off,y:wy-90+off,w:180,h:180,color:_pickColor(),text:''};
-    elements.push(el); selected=el.id; render();
+    elements.push(el); selected=el.id; setTimeout(()=>_syncAdd(el), 50); render(); _broadcast();
     setTimeout(()=>_editStickyInline(el),60);
     _status('Type your note — click outside to save');
   }
@@ -655,13 +657,62 @@ const Whiteboard = (() => {
 
   function applyRemoteState(state) {
     if (!state) return;
-    elements   = state.elements   || [];
-    strokes    = state.strokes    || [];
-    connectors = state.connectors || [];
+    // Merge: keep local selection, replace data
+    elements   = JSON.parse(JSON.stringify(state.elements   || []));
+    strokes    = JSON.parse(JSON.stringify(state.strokes    || []));
+    connectors = JSON.parse(JSON.stringify(state.connectors || []));
     selected   = null;
     render();
-    Logger.debug('WB','Applied remote state');
+    Logger.debug('WB', `Remote state applied: ${elements.length} elements, ${strokes.length} strokes`);
   }
 
-  return {init,setTool,setColor,setSize,setStickyColor,clear,undo,redo,zoomIn,zoomOut,zoomReset,exportPNG,addSticky,addFileCard,render,getState,applyRemoteState};
+
+  // ── Granular apply methods (called by sync.js) ─────────────────────────
+  function applyAddElement(el) {
+    if (elements.find(e => e.id === el.id)) return; // dedup
+    elements.push(JSON.parse(JSON.stringify(el)));
+    render();
+  }
+
+  function applyMoveElement(id, x, y) {
+    const el = elements.find(e => e.id === id);
+    if (!el) return;
+    el.x = x; el.y = y;
+    render();
+  }
+
+  function applyDeleteElement(id) {
+    elements   = elements.filter(e => e.id !== id);
+    connectors = connectors.filter(c => c.fromId !== id && c.toId !== id);
+    if (selected === id) selected = null;
+    render();
+  }
+
+  function applyUpdateElement(id, props) {
+    const el = elements.find(e => e.id === id);
+    if (!el) return;
+    if (props.color !== undefined) el.color = props.color;
+    if (props.text  !== undefined) el.text  = props.text;
+    if (props.w     !== undefined) el.w     = props.w;
+    if (props.h     !== undefined) el.h     = props.h;
+    render();
+  }
+
+  function applyAddStroke(stroke) {
+    strokes = strokes.filter(s => s.id !== stroke.id);
+    strokes.push(stroke);
+    render();
+  }
+
+  function applyClearStrokes() {
+    strokes = [];
+    render();
+  }
+
+  function applyConnectors(conns) {
+    connectors = JSON.parse(JSON.stringify(conns));
+    render();
+  }
+
+  return {init,setTool,setColor,setSize,setStickyColor,clear,undo,redo,zoomIn,zoomOut,zoomReset,exportPNG,addSticky,addFileCard,render,getState,applyRemoteState,applyAddElement,applyMoveElement,applyDeleteElement,applyUpdateElement,applyAddStroke,applyClearStrokes,applyConnectors};
 })();
